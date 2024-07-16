@@ -34,6 +34,8 @@ safety_settings = [
     ]
 ]
 
+latest_response = None
+
 
 def generate_response_from_gemini(input_text):
     # Create a GenAI model with gemini pro
@@ -121,6 +123,39 @@ def get_response():
         return jsonify({"generated_response": latest_response}), 200
     else:
         return jsonify({"error": "No response generated yet"}), 400
+
+
+@app.route("/suggestions", methods=["POST"])
+def get_suggestions():
+    match_percentage = request.form.get("match_percentage")
+    job_role = request.form.get("job_role")
+    resume_text = request.form.get("resume_text")
+    job_description = request.form.get("job_description")
+
+    if not match_percentage or not job_role or not resume_text or not job_description:
+        return jsonify({"error": "Missing Required Fields"}), 400
+
+    input_prompt = """
+        Act as an experienced career advisor with extensive knowledge in {job_role}. Given the current job description and the candidate's resume with a match percentage of {match_percentage}%, provide detailed suggestions on how to improve the resume to better match the job description. Include specific changes in skills, keywords, and formatting that can increase the match percentage.
+        resume: {resume_text}
+        description: {job_description}
+        I want the response in one single string having the structure
+        {{"Suggestions": ""}}
+    """
+
+    suggestions_response = generate_response_from_gemini(
+        input_prompt.format(
+            job_role=job_role,
+            match_percentage=match_percentage,
+            resume_text=resume_text,
+            job_description=job_description,
+        )
+    )
+    
+    suggestions = suggestions_response.split('"Suggestions":"')[1].split('"')[0]
+    result = {"suggestions": suggestions}
+    
+    return jsonify(result), 200
 
 
 if __name__ == "__main__":

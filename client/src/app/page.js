@@ -4,10 +4,12 @@ import { useState } from "react";
 import axios from "axios";
 
 export default function Home() {
+  const [jobRole, setJobRole] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [resumeFile, setResumeFile] = useState(null);
   const [matchPercentage, setMatchPercentage] = useState(null);
   const [generatedResponse, setGeneratedResponse] = useState(null);
+  const [suggestions, setSuggestions] = useState(null);
   const [error, setError] = useState(null);
 
   const handleFileChange = (e) => {
@@ -49,6 +51,26 @@ export default function Home() {
       setError("An error occurred while fetching the generated response.");
     }
   };
+
+  const fetchSuggestions = async () => {
+    if (!matchPercentage || !jobRole) {
+      setError("Please provide both a match percentage and a job role.");
+      return;
+    }
+
+    try {
+      const response = await axios.post("http://127.0.0.1:5000/suggestions", {
+        matchPercentage: matchPercentage,
+        jobRole: jobRole,
+        resume_text: generatedResponse.resume_text,
+        jobDescription: jobDescription
+      });
+
+      setSuggestions(response.data.suggestions);
+    } catch (error) {
+      setError("An error occurred while fetching the suggestions.");
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
@@ -105,6 +127,29 @@ export default function Home() {
               Fetch Generated Response
             </button>
           </div>
+          <div>
+            <label htmlFor="job-role" className="sr-only">
+              Job Role
+            </label>
+            <input
+              id="job-role"
+              name="job_role"
+              type="text"
+              className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="Job Role"
+              value={jobRole}
+              onChange={(e) => setJobRole(e.target.value)}
+            />
+          </div>
+          <div>
+            <button
+              type="button"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-4"
+              onClick={fetchSuggestions}
+            >
+              Fetch Suggestions
+            </button>
+          </div>
           {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
           {matchPercentage !== null && (
             <p className="mt-2 text-center text-sm text-green-600">
@@ -114,6 +159,11 @@ export default function Home() {
           {generatedResponse && (
             <pre className="mt-4 p-4 bg-gray-200 rounded">
               {JSON.stringify(generatedResponse, null, 2)}
+            </pre>
+          )}
+          {suggestions && (
+            <pre className="mt-4 p-4 bg-gray-200 rounded">
+              {JSON.stringify(suggestions, null, 2)}
             </pre>
           )}
         </form>
