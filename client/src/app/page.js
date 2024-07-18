@@ -16,18 +16,29 @@ export default function Home() {
     setResumeFile(e.target.files[0]);
   };
 
+  const fetchGeneratedResponse = async () => {
+    try {
+      const response = await axios.get("http://127.0.0.1:5000/response");
+      setGeneratedResponse(response.data.generated_response);
+    } catch (error) {
+      console.error("Error fetching generated response:", error);
+      setError("An error occurred while fetching the generated response.");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setMatchPercentage(null);
 
-    if (!resumeFile || !jobDescription) {
-      setError("Please provide both a resume and a job description.");
+    if (!resumeFile || !jobDescription || !jobRole) {
+      setError("Please provide a resume, job description, and job role.");
       return;
     }
 
     const formData = new FormData();
     formData.append("job_description", jobDescription);
+    formData.append("job_role", jobRole);
     formData.append("resume_file", resumeFile);
 
     try {
@@ -38,23 +49,16 @@ export default function Home() {
       });
 
       setMatchPercentage(response.data.match_percentage);
+      await fetchGeneratedResponse(); // Ensure this completes before proceeding
     } catch (error) {
+      console.error("Error uploading the file:", error);
       setError("An error occurred while uploading the file.");
     }
   };
 
-  const fetchGeneratedResponse = async () => {
-    try {
-      const response = await axios.get("http://127.0.0.1:5000/response");
-      setGeneratedResponse(response.data.generated_response);
-    } catch (error) {
-      setError("An error occurred while fetching the generated response.");
-    }
-  };
-
   const fetchSuggestions = async () => {
-    if (!matchPercentage || !jobRole) {
-      setError("Please provide both a match percentage and a job role.");
+    if (!matchPercentage || !jobRole || !generatedResponse) {
+      setError("Please provide both a match percentage, job role, and ensure the response is generated.");
       return;
     }
 
@@ -64,10 +68,15 @@ export default function Home() {
         jobRole: jobRole,
         resume_text: generatedResponse.resume_text,
         jobDescription: jobDescription
+      }, {
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
 
       setSuggestions(response.data.suggestions);
     } catch (error) {
+      console.error("Error fetching suggestions:", error);
       setError("An error occurred while fetching the suggestions.");
     }
   }
@@ -83,6 +92,20 @@ export default function Home() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
+              <label htmlFor="job-role" className="sr-only">
+                Job Role
+              </label>
+              <input
+                id="job-role"
+                name="job_role"
+                type="text"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                placeholder="Job Role"
+                value={jobRole}
+                onChange={(e) => setJobRole(e.target.value)}
+              />
+            </div>
+            <div>
               <label htmlFor="job-description" className="sr-only">
                 Job Description
               </label>
@@ -90,7 +113,7 @@ export default function Home() {
                 id="job-description"
                 name="job_description"
                 rows="4"
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Job Description"
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
@@ -118,29 +141,15 @@ export default function Home() {
               Analyze Resume
             </button>
           </div>
-          <div>
-            <button
-              type="button"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 mt-4"
-              onClick={fetchGeneratedResponse}
-            >
-              Fetch Generated Response
-            </button>
-          </div>
-          <div>
-            <label htmlFor="job-role" className="sr-only">
-              Job Role
-            </label>
-            <input
-              id="job-role"
-              name="job_role"
-              type="text"
-              className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-              placeholder="Job Role"
-              value={jobRole}
-              onChange={(e) => setJobRole(e.target.value)}
-            />
-          </div>
+
+          {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
+          {matchPercentage !== null ? (
+            <p className="mt-2 text-center text-sm text-green-600">
+              Job Description Match Percentage: {matchPercentage}%
+            </p>
+          ) : (
+            <p>Analyzing Resume...</p>
+          )}
           <div>
             <button
               type="button"
@@ -150,21 +159,21 @@ export default function Home() {
               Fetch Suggestions
             </button>
           </div>
-          {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
-          {matchPercentage !== null && (
-            <p className="mt-2 text-center text-sm text-green-600">
-              Job Description Match Percentage: {matchPercentage}%
-            </p>
-          )}
+
           {generatedResponse && (
-            <pre className="mt-4 p-4 bg-gray-200 rounded">
-              {JSON.stringify(generatedResponse, null, 2)}
-            </pre>
+            <div className="mt-4 p-4 bg-gray-200 rounded">
+              <h2 className="text-xl font-bold mb-2">Generated Response:</h2>
+              <p className="mb-2"><strong>Match Percentage:</strong> {matchPercentage} %</p>
+              <p className="mb-2"><strong>Missing Keywords:</strong> {generatedResponse?.missing_keywords}</p>
+              <p className="mb-2"><strong>Candidate Summary:</strong> {generatedResponse?.candidate_summary}</p>
+              <p className="mb-2"><strong>Experience:</strong> {generatedResponse?.experience}</p>
+            </div>
           )}
           {suggestions && (
-            <pre className="mt-4 p-4 bg-gray-200 rounded">
-              {JSON.stringify(suggestions, null, 2)}
-            </pre>
+            <div className="mt-4 p-4 bg-gray-200 rounded">
+              <h2 className="text-xl font-bold mb-2">Suggestions:</h2>
+              <p>{suggestions}</p>
+            </div>
           )}
         </form>
       </div>

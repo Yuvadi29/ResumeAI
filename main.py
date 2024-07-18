@@ -101,6 +101,9 @@ def upload_resume():
             input_prompt.format(text=resume_text, job_description=job_description)
         )
 
+        global latest_response
+        latest_response = response_text  # Store the response
+
         # Extract Job Description Match percentage
         match_percentage_str = response_text.split('"Job Description Match":"')[
             1
@@ -127,10 +130,11 @@ def get_response():
 
 @app.route("/suggestions", methods=["POST"])
 def get_suggestions():
-    match_percentage = request.form.get("match_percentage")
-    job_role = request.form.get("job_role")
-    resume_text = request.form.get("resume_text")
-    job_description = request.form.get("job_description")
+    data = request.get_json()
+    match_percentage = data.get("matchPercentage")
+    job_role = data.get("jobRole")
+    resume_text = data.get("resume_text")
+    job_description = data.get("jobDescription")
 
     if not match_percentage or not job_role or not resume_text or not job_description:
         return jsonify({"error": "Missing Required Fields"}), 400
@@ -151,10 +155,10 @@ def get_suggestions():
             job_description=job_description,
         )
     )
-    
+
     suggestions = suggestions_response.split('"Suggestions":"')[1].split('"')[0]
     result = {"suggestions": suggestions}
-    
+
     return jsonify(result), 200
 
 
